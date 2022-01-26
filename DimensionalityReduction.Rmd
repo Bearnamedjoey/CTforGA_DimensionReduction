@@ -41,7 +41,7 @@ row.names(fromPy)=NULL
 str(fromPy)
 ```
 
-Let's explore three types of clustering approaches.
+Let's comment on two types of clustering approaches.
 
 1. Partitioning: You will request a particular number of clusters to the algorithm. The algorithm will put every case in one of those clusters. Outliers will affect output.
 
@@ -51,11 +51,6 @@ Let's explore three types of clustering approaches.
 
 ![Source: https://quantdare.com/hierarchical-clustering/](https://quantdare.com/wp-content/uploads/2016/06/AggloDivHierarClustering-800x389.png)
 
-3. Based on Density
-
-This approach will cluster cases as long as they are close to each other at a predetermined distance. You need to input the distance and the minimal amount of cases in a neighboorhood to be considered a cluster. The algorithm is not affected by outliers.
-
-![https://commons.wikimedia.org/wiki/Cluster_analysis](https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/DBSCAN-Gaussian-data.svg/600px-DBSCAN-Gaussian-data.svg.png)
 
 _____
 
@@ -98,282 +93,139 @@ log(dataToCluster)
 
 
 **d.** Set random seed:
-```{r clusSeed, eval=TRUE}
+```{r clusterSeed, eval=TRUE}
 set.seed(999) # this is for replicability of results
 ```
 
 
 **e.** Decide distance method and compute distance matrix:
-```{r clusDistance, eval=TRUE}
+```{r cluster_DistanceMatrix, eval=TRUE}
 library(cluster)
 dataToCluster_DM=daisy(x=dataToCluster, metric = "gower")
 ```
 
 
 
-## Partitioning technique
+## Compute Clusters
 
-### 1. Apply function: you need to indicate the amount of clusters required.
+### 1. Apply function: you need to indicate a priori the amount of clusters required.
 
-```{r clusPam, eval=TRUE}
-NumCluster=4
-res.pam = pam(x=dfClus_D,
-              k = NumCluster,
+```{r clusterComputeALL, eval=TRUE}
+
+NumberOfClusterDesired=5
+
+# Partitioning technique
+res.pam = pam(x=dataToCluster_DM,
+              k = NumberOfClusterDesired,
               cluster.only = F)
-```
 
+# Hierarchical technique- agglomerative approach
 
-### 2. Clustering results. 
-
-**2.1 ** Add results to original data frame:
-
-```{r cluspamSave, eval=TRUE}
-fromPy$pam=as.factor(res.pam$clustering)
-```
-
-**2.2 ** Query data frame as needed:
-
-Example 1:
-```{r cluspamquery1, eval=TRUE}
-fromPy[fromPy$pam==1,'Country']
-```
-
-Example 2:
-
-```{r cluspamquery2, eval=TRUE}
-fromPy[fromPy$Country=="Peru",'pam']
-```
-
-**2.2 ** REPORT: Table of clusters
-
-```{r cluspamREPORTtable, eval=TRUE}
-table(fromPy$pam)
-```
-
-
-### 3. Evaluate Results.
-
-**3.1** REPORT: Average silhouettes
-
-```{r cluspamREPORT_silave, eval=TRUE}
 library(factoextra)
-fviz_silhouette(res.pam)
-```
-
-**3.2** REPORT: Detecting anomalies
-
-a. Save individual silhouettes:
-
-```{r cluspamREPORT_datasil, eval=TRUE}
-pamEval=data.frame(res.pam$silinfo$widths)
-head(pamEval)
-```
-
-b. Request negative silhouettes: The ones that are poorly clustered.
-
-```{r cluspamREPORT_silnegative, eval=TRUE}
-pamEval[pamEval$sil_width<0,]
-```
-
-
-## Hierarchizing: agglomerative
-
-### 1. Apply function: 
-
-```{r clusagn, eval=TRUE}
-library(factoextra)
-
-res.agnes= hcut(dfClus_D, 
-                k = NumCluster,isdiss=T,
+res.agnes= hcut(dataToCluster_DM, 
+                k = NumberOfClusterDesired,
+                isdiss=TRUE,
                 hc_func='agnes',
+                hc_method = "ward.D2")
+
+# Hierarchical technique- divisive approach
+res.diana= hcut(dataToCluster_DM, 
+                k = NumberOfClusterDesired,
+                isdiss=TRUE,
+                hc_func='diana',
                 hc_method = "ward.D2")
 ```
 
+
 ### 2. Clustering results. 
 
 **2.1 ** Add results to original data frame:
 
-
-```{r clusagnSave, eval=TRUE}
+```{r clusterSave_toDF, eval=TRUE}
+fromPy$pam=as.factor(res.pam$clustering)
 fromPy$agn=as.factor(res.agnes$cluster)
-```
-
-
-**2.2 ** Query data frame as needed:
-
-Example 1:
-
-```{r clusagnQuery1, eval=TRUE}
-fromPy[fromPy$agn==1,'Country']
-```
-
-Example 2:
-
-```{r clusagnQuery2, eval=TRUE}
-fromPy[fromPy$Country=="Peru",'agn']
-```
-
-
-**2.2 ** REPORT: Table of clusters
-
-Reporting results:
-```{r clusagnREPORTtable, eval=TRUE}
-table(fromPy$agn)
-```
-
-
-### 3. Evaluate Results.
-
-**3.1a** REPORT: Dendogram
-
-
-```{r clusagnREPORTdendo, eval=TRUE}
-fviz_dend(res.agnes,k=NumCluster, cex = 0.7, horiz = T)
-```
-
-**3.1b** REPORT: Average silhouettes:
-
-```{r clusagnREPORTsilave, eval=TRUE}
-library(factoextra)
-fviz_silhouette(res.agnes)
-```
-
-**3.2** REPORT: Detecting anomalies
-
-a. Saving silhouettes:
-
-```{r clusagnREPORTsildata, eval=TRUE}
-agnEval=data.frame(res.agnes$silinfo$widths)
-head(agnEval)
-```
-
-b. Requesting negative silhouettes:
-
-```{r clusagnREPORTsilnega, eval=TRUE}
-agnEval[agnEval$sil_width<0,]
-```
-
-
-## Hierarchizing: divisive
-
-### 1. Apply function: you need to indicate the amount of clusters required.
-
-```{r clusdia, eval=TRUE}
-library(factoextra)
-
-res.diana= hcut(dfClus_D, k = NumCluster,
-                 hc_func='diana',
-                 hc_method = "ward.D")
-```
-
-
-### 2. Clustering results. 
-
-**2.1 ** Add results to original data frame:
-
-
-```{r clusdiaSave, eval=TRUE}
 fromPy$dia=as.factor(res.diana$cluster)
 ```
 
+**2.2 ** Verify ordinality in clusters
 
-**2.2 ** Query data frame as needed:
-
-Example 1:
-
-```{r clusdiaQuery1, eval=TRUE}
-fromPy[fromPy$dia==1,'Country']
+```{r cluspamCheck, eval=TRUE}
+aggregate(data=fromPy,
+          Overallscore~pam,
+          FUN=mean)
+```
+```{r clusagnCheck, eval=TRUE}
+aggregate(data=fromPy,
+          Overallscore~agn,
+          FUN=mean)
+```
+```{r clusdiaCheck, eval=TRUE}
+aggregate(data=fromPy,
+          Overallscore~dia,
+          FUN=mean)
 ```
 
-Example 2:
+You could recode these values like this:
 
-```{r clusdiaQuery2, eval=TRUE}
-fromPy[fromPy$Country=="Peru",'dia']
+```{r recoding, eval=TRUE}}
+library(dplyr)
+
+fromPy$pam=dplyr::recode_factor(fromPy$pam, 
+                  `1` = '5',`2`='4',`3`='3',`4`='2',`5`='1')
+fromPy$agn=dplyr::recode_factor(fromPy$agn, 
+                  `1` = '5',`2`='4',`3`='3',`4`='2',`5`='1')
+fromPy$dia=dplyr::recode_factor(fromPy$dia, 
+                  `1` = '5',`2`='4',`3`='3',`4`='2',`5`='1')
 ```
-
-
-**2.2 ** REPORT: Table of clusters
-
-Reporting results:
-```{r clusdiaREPORTtable, eval=TRUE}
-table(fromPy$dia)
-```
-
 
 ### 3. Evaluate Results.
 
-**3.1a** REPORT: Dendogram
+**3.1** Plot silhouettes
 
-
-```{r clusdiaREPORTdendo, eval=TRUE}
-fviz_dend(res.diana,k=NumCluster, cex = 0.7, horiz = T)
+```{r clust_silhou_PAM, eval=TRUE}
+# from factoextra
+fviz_silhouette(res.pam)
 ```
 
-**3.1b** REPORT: Average silhouettes:
+```{r clust_silhou_PAM, eval=TRUE}
 
-```{r clusdiaREPORTavesil, eval=TRUE}
+fviz_silhouette(res.agnes)
+```
+
+```{r clust_silhou_PAM, eval=TRUE}
 library(factoextra)
 fviz_silhouette(res.diana)
 ```
 
-**3.2** REPORT: Detecting anomalies
+**3.2** Detecting cases badly clustered
 
-a. Saving silhouettes:
+a. Save individual silhouettes:
 
-```{r clusdiaREPORTdata, eval=TRUE}
+Previos results have saved important information:
+
+```{r}
+data.frame(res.pam$silinfo$widths)
+```
+
+```{r negativeSilhouettes, eval=TRUE}
+pamEval=data.frame(res.pam$silinfo$widths)
+agnEval=data.frame(res.agnes$silinfo$widths)
 diaEval=data.frame(res.diana$silinfo$widths)
-head(diaEval)
-```
 
-b. Requesting negative silhouettes:
-
-```{r clusdiaREPORTsilnega, eval=TRUE}
-diaEval[diaEval$sil_width<0,]
+pamPoor=rownames(pamEval[pamEval$sil_width<0,])
+agnPoor=rownames(agnEval[agnEval$sil_width<0,])
+diaPoor=rownames(diaEval[diaEval$sil_width<0,])
 ```
 
 
-## Density-based clustering
-
-You input the distance and the minimal number of neighbors that form a cluster.
-
-```{r clusdbKNN, eval=TRUE}
-library(dbscan)
-#minNeighs>= num cols in data
-minNeighs=4
-kNNdistplot(dfClus_D, k = minNeighs)
-abline(h=0.3, col = "red", lty=2)
-```
-
-
-```{r clusdb, eval=TRUE}
-distance=0.3
-res.db = dbscan::dbscan(dfClus_D, 
-                        eps=distance, 
-                        minPts=minNeighs)
-```
-
-**REPORT**:
-
-How many cluster were produced? and How many outliers are there?
-
-```{r clusdbREPORT, eval=TRUE}
-# '0' identifies outliers: 
-res.db
-```
-
-Save result:
-
-```{r clusdbSave, eval=TRUE}
-fromPy$db=as.factor(res.db$cluster)
-```
 
 
 # How to compare clustering?
 
-* Prepare a bidimensional map:
+* Prepare a bidimensional map using distances:
 
 ```{r cmdMap, eval=TRUE}
-projectedData = cmdscale(dfClus_D, k=2)
+projectedData = cmdscale(dataToCluster_DM, k=2)
 #
 # save coordinates to original data frame:
 fromPy$dim1 = projectedData[,1]
@@ -389,6 +241,8 @@ base= ggplot(data=fromPy,
                  label=Country)) 
 base + geom_text(size=2)
 ```
+
+
 
 * Plot results from PAM:
 ```{r plotpam, eval=TRUE}
@@ -420,27 +274,42 @@ library(ggpubr)
 ggarrange(pamPlot, agnPlot, diaPlot,ncol = 3)
 ```
 
-* Plot results from DBSCAN:
-```{r plotdb, eval=TRUE}
-dbPlot= base + labs(title = "DBSCAN") + geom_point(aes(color=db),
-                                               show.legend = T) 
-dbPlot
+
+### 3. Evaluate Results.
+
+**3.1a** REPORT: Dendogram
+
+
+```{r clusagnREPORTdendo, eval=TRUE}
+fviz_dend(res.agnes,k=NumberOfClusterDesired, cex = 0.45, horiz = T)
 ```
 
-Annotating:
 
-```{r plotdb_annot1, eval=TRUE}
-library(ggrepel)
-dbPlot + geom_text_repel(size=3,aes(label=Country))
+
+```{r clusdiaREPORTdendo, eval=TRUE}
+fviz_dend(res.diana,k=NumberOfClusterDesired, cex = 0.45, horiz = T)
 ```
+
 
 Annotating outliers:
 
 ```{r plotdb_annot2, eval=TRUE}
-LABEL=ifelse(fromPy$db==0,fromPy$Country,"")
 
-dbPlot + geom_text_repel(aes(label=LABEL))
+LABELpam=ifelse(fromPy$Country%in%pamPoor,fromPy$Country,"")
+LABELdia=ifelse(fromPy$Country%in%diaPoor,fromPy$Country,"")
+LABELagn=ifelse(fromPy$Country%in%agnPoor,fromPy$Country,"")
+
+
+pamPlot + geom_text_repel(aes(label=LABELpam))
 ```
+
+```{r}
+diaPlot + geom_text_repel(aes(label=LABELdia))
+```
+```{r}
+agnPlot + geom_text_repel(aes(label=LABELagn))
+```
+
 
 # <font color="red">FACTOR ANALYSIS</font>
 
