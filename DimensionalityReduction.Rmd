@@ -60,7 +60,7 @@ _____
 
 **a.** Subset your data (recommended)
 
-```{r, eval=TRUE}
+```{r subsetting, eval=TRUE}
 selection=c("Country","Electoralprocessandpluralism", "Functioningofgovernment","Politicalparticipation","Politicalculture", "Civilliberties")
 
 dataToCluster=fromPy[,selection]
@@ -68,23 +68,25 @@ dataToCluster=fromPy[,selection]
 
 **b.** Set labels as row index
 
-```{r, eval=TRUE}
+```{r rownames, eval=TRUE}
 row.names(dataToCluster)=dataToCluster$Country
 dataToCluster$Country=NULL
 ```
 
 
 **c.** Decide if data needs to be transformed:
-```{r, eval=TRUE}
+```{r boxplotS, eval=TRUE}
 boxplot(dataToCluster,horizontal = T, las=2,cex.axis=0.4)
 ```
 
 The data values have a similar range, then you do not need to transform the data. Possible alternatives could have been:
-```{r}
-# standardizing
-as.data.frame(scale(dataToCluster))
-# smoothing
-log(dataToCluster)
+
+```{r transforming, eval=TRUE}
+#### standardizing
+#as.data.frame(scale(dataToCluster))
+
+### or smoothing
+#log(dataToCluster)
 ```
 
 
@@ -149,17 +151,17 @@ fromPy$dia=as.factor(res.diana$cluster)
 
 **2.2 ** Verify ordinality in clusters
 
-```{r cluspamCheck, eval=TRUE}
+```{r clusPamCheck, eval=TRUE}
 aggregate(data=fromPy,
           Overallscore~pam,
           FUN=mean)
 ```
-```{r clusagnCheck, eval=TRUE}
+```{r clusAgnCheck, eval=TRUE}
 aggregate(data=fromPy,
           Overallscore~agn,
           FUN=mean)
 ```
-```{r clusdiaCheck, eval=TRUE}
+```{r clusDiaCheck, eval=TRUE}
 aggregate(data=fromPy,
           Overallscore~dia,
           FUN=mean)
@@ -167,7 +169,7 @@ aggregate(data=fromPy,
 
 You could recode these values like this:
 
-```{r recoding, eval=TRUE}}
+```{r recoding, eval=TRUE}
 library(dplyr)
 
 fromPy$pam=dplyr::recode_factor(fromPy$pam, 
@@ -187,12 +189,12 @@ fromPy$dia=dplyr::recode_factor(fromPy$dia,
 fviz_silhouette(res.pam)
 ```
 
-```{r clust_silhou_PAM, eval=TRUE}
+```{r clust_silhou_AGNES, eval=TRUE}
 
 fviz_silhouette(res.agnes)
 ```
 
-```{r clust_silhou_PAM, eval=TRUE}
+```{r clust_silhou_DIANA, eval=TRUE}
 library(factoextra)
 fviz_silhouette(res.diana)
 ```
@@ -203,11 +205,11 @@ a. Save individual silhouettes:
 
 Previos results have saved important information:
 
-```{r}
-data.frame(res.pam$silinfo$widths)
+```{r infoSIL, eval=TRUE}
+head(data.frame(res.pam$silinfo$widths),20)
 ```
 
-```{r negativeSilhouettes, eval=TRUE}
+```{r negativeSILs, eval=TRUE}
 pamEval=data.frame(res.pam$silinfo$widths)
 agnEval=data.frame(res.agnes$silinfo$widths)
 diaEval=data.frame(res.diana$silinfo$widths)
@@ -224,7 +226,7 @@ diaPoor=rownames(diaEval[diaEval$sil_width<0,])
 
 * Prepare a bidimensional map using distances:
 
-```{r cmdMap, eval=TRUE}
+```{r cmd_Map, eval=TRUE}
 projectedData = cmdscale(dataToCluster_DM, k=2)
 #
 # save coordinates to original data frame:
@@ -248,14 +250,14 @@ base + geom_text(size=2)
 ```{r plotpam, eval=TRUE}
 pamPlot=base + labs(title = "PAM") + geom_point(size=2,
                                               aes(color=pam),
-                                              show.legend = F)  
+                                              show.legend = T)  
 ```
 
 * Plot results from Hierarchical AGNES:
 ```{r plotagn, eval=TRUE}
 agnPlot=base + labs(title = "AGNES") + geom_point(size=2,
                                               aes(color=agn),
-                                              show.legend = F) 
+                                              show.legend = T) 
 ```
 
 
@@ -263,7 +265,7 @@ agnPlot=base + labs(title = "AGNES") + geom_point(size=2,
 ```{r plotdia, eval=TRUE}
 diaPlot=base + labs(title = "DIANA") + geom_point(size=2,
                                               aes(color=dia),
-                                              show.legend = F) 
+                                              show.legend = T) 
 ```
 
 
@@ -271,37 +273,20 @@ Compare visually:
 
 ```{r plotcompare, eval=TRUE}
 library(ggpubr)
-ggarrange(pamPlot, agnPlot, diaPlot,ncol = 3)
+
+ggarrange(pamPlot, agnPlot, diaPlot,ncol = 3,common.legend = T)
 ```
-
-
-### 3. Evaluate Results.
-
-**3.1a** REPORT: Dendogram
-
-
-```{r clusagnREPORTdendo, eval=TRUE}
-fviz_dend(res.agnes,k=NumberOfClusterDesired, cex = 0.45, horiz = T)
-```
-
-
-
-```{r clusdiaREPORTdendo, eval=TRUE}
-fviz_dend(res.diana,k=NumberOfClusterDesired, cex = 0.45, horiz = T)
-```
-
 
 Annotating outliers:
 
 ```{r plotdb_annot2, eval=TRUE}
-
+library(ggrepel)
 LABELpam=ifelse(fromPy$Country%in%pamPoor,fromPy$Country,"")
 LABELdia=ifelse(fromPy$Country%in%diaPoor,fromPy$Country,"")
 LABELagn=ifelse(fromPy$Country%in%agnPoor,fromPy$Country,"")
-
-
 pamPlot + geom_text_repel(aes(label=LABELpam))
 ```
+
 
 ```{r}
 diaPlot + geom_text_repel(aes(label=LABELdia))
@@ -310,23 +295,37 @@ diaPlot + geom_text_repel(aes(label=LABELdia))
 agnPlot + geom_text_repel(aes(label=LABELagn))
 ```
 
+* The Dendogram (for hierarchical approaches)
+
+
+```{r clusagnREPORTdendo, eval=TRUE}
+fviz_dend(res.agnes,k=NumberOfClusterDesired, cex = 0.45, horiz = T,main = "AGNES approach")
+```
+
+
+```{r clusdiaREPORTdendo, eval=TRUE}
+fviz_dend(res.diana,k=NumberOfClusterDesired, cex = 0.45, horiz = T,main = "DIANA approach")
+```
+
 
 # <font color="red">FACTOR ANALYSIS</font>
 
-You would like turn the 5 dimensions of democracy index into one, without following an arithmetic approach, but an algebraic one, instead. Dimension reduction is the job of latent variable analysis, and that's the way proposed here.
+Simply speaking, this technique tries to express in one (or few) dimension(s) the behavior of several others. FA assumes that the several input variables have 'something' in common, there is something **latent** that the set of input variables represent. 
 
 
 Let me subset our original data frame:
 
 ```{r, eval=TRUE}
-subDemo=fromPy[,c(8:12)]
+selection=c("Country","Electoralprocessandpluralism", "Functioningofgovernment","Politicalparticipation","Politicalculture", "Civilliberties")
+
+dataForFA=fromPy[,selection]
 ```
 
 
-Our *subDemo* DF has the data to compute the one index we need. I will show the technique called **confirmatory factor analysis**:
+Our *dataForFA* data frame has the data to compute the one index we need. I will show the technique called **confirmatory factor analysis**:
 
 ```{r, eval=TRUE}
-names(subDemo)
+names(dataForFA)
 ```
 
 
@@ -334,17 +333,17 @@ names(subDemo)
 library(lavaan)
 
 model='
-dem=~Electoralprocessandpluralism + Functioningofgovernment + Politicalparticipation + Politicalculture + Civilliberties
+democra=~Electoralprocessandpluralism + Functioningofgovernment + Politicalparticipation + Politicalculture + Civilliberties
 '
 
-fit<-cfa(model, data = subDemo,std.lv=TRUE)
+fit<-cfa(model, data = dataForFA,std.lv=TRUE)
 indexCFA=lavPredict(fit)
 ```
 
+
 The index computed is not in a range from 0 to 10:
 ```{r, eval=TRUE}
-library(magrittr)
-indexCFA%>%head(10)
+indexCFA[1:10]
 ```
 
 
@@ -354,27 +353,19 @@ We force its return to "0 to 10":
 library(scales)
 indexCFANorm=rescale(as.vector(indexCFA), 
                      to = c(0, 10))
+indexCFANorm[1:10]
 ```
-
 
 So, this is our index:
 ```{r, eval=TRUE}
 fromPy$demo_FA=indexCFANorm
 ```
 
-Let me plot this index:
-```{r, eval=TRUE}
-library(ggplot2)
-base=ggplot(data=fromPy,
-            aes(x=demo_FA))
-base+geom_histogram()
-```
-
-
 Let me compare the new index with the original score:
+
 ```{r, eval=TRUE}
 base=ggplot(data=fromPy,
-            aes(x=demo_FA,y=Score))
+            aes(x=demo_FA,y=Overallscore))
 base+geom_point()
 ```
 
@@ -417,8 +408,9 @@ You can see how it looks:
 
 ```{r, eval=TRUE}
 library(semPlot)
-semPaths(fit, what='std', nCharNodes=10, sizeMan=8,
+semPaths(fit, what='std', nCharNodes=0, sizeMan=12,
          edge.label.cex=1.5, fade=T,residuals = F)
+
 ```
 
 
