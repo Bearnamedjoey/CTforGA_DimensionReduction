@@ -444,8 +444,9 @@ diaPoor=rownames(diaEval[diaEval$sil_width&lt;0,])</code></pre>
 <pre><code>## Loading required package: robustbase</code></pre>
 <pre><code>## Loading required package: Matrix</code></pre>
 <pre class="r"><code>bap_Clus=as.data.frame(qpcR:::cbind.na(sort(pamPoor), sort(agnPoor),sort(diaPoor)))
+names(bap_Clus)=c(&quot;pam&quot;,&quot;agn&quot;,&quot;dia&quot;)
 bap_Clus</code></pre>
-<pre><code>##                V1               V2        V3
+<pre><code>##               pam              agn       dia
 ## 1         Albania          Albania Hong Kong
 ## 2         Armenia          Georgia     Nepal
 ## 3      Bangladesh         Honduras      &lt;NA&gt;

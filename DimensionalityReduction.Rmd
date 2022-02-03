@@ -123,8 +123,6 @@ fviz_nbclust(dataToCluster,
              diss=dataToCluster_DM,
              method = "gap_stat",
              k.max = 10,verbose = F)
-
-
 ```
 
 b. For hierarchical (agglomerative):
@@ -271,6 +269,7 @@ Now, I can see what countries are not well clustered. Juntemos todos en un Dataf
 ```{r, eval=TRUE}
 library("qpcR") 
 bap_Clus=as.data.frame(qpcR:::cbind.na(sort(pamPoor), sort(agnPoor),sort(diaPoor)))
+names(bap_Clus)=c("pam","agn","dia")
 bap_Clus
 ```
 
