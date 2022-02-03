@@ -110,11 +110,56 @@ dataToCluster_DM=daisy(x=dataToCluster, metric = "gower")
 
 ## Compute Clusters
 
+### 0. Computer suggestions
+
+Using function *fviz_nbclust* from the library *factoextra* we can see how many clustered are suggested.
+
+a. For partitioning:
+
+```{r, eval=TRUE}
+library(factoextra)
+fviz_nbclust(dataToCluster, 
+             pam,
+             diss=dataToCluster_DM,
+             method = "gap_stat",
+             k.max = 10,verbose = F)
+
+
+```
+
+b. For hierarchical (agglomerative):
+
+```{r, eval=TRUE}
+fviz_nbclust(dataToCluster, 
+             hcut,
+             diss=dataToCluster_DM,
+             method = "gap_stat",
+             k.max = 10,
+             verbose = F,
+             hc_func = "agnes")
+
+
+```
+
+c. For hierarchical (divisive):
+
+```{r, eval=TRUE}
+fviz_nbclust(dataToCluster, 
+             hcut,
+             diss=dataToCluster_DM,
+             method = "gap_stat",
+             k.max = 10,
+             verbose = F,
+             hc_func = "diana")
+```
+
+We could accept the number of cluster suggested or not. Let's use the suggestion:
+
 ### 1. Apply function: you need to indicate a priori the amount of clusters required.
 
 ```{r clusterComputeALL, eval=TRUE}
 
-NumberOfClusterDesired=5
+NumberOfClusterDesired=4
 
 # Partitioning technique
 res.pam = pam(x=dataToCluster_DM,
@@ -123,7 +168,7 @@ res.pam = pam(x=dataToCluster_DM,
 
 # Hierarchical technique- agglomerative approach
 
-library(factoextra)
+#library(factoextra)
 res.agnes= hcut(dataToCluster_DM, 
                 k = NumberOfClusterDesired,
                 isdiss=TRUE,
@@ -173,11 +218,11 @@ You could recode these values like this:
 library(dplyr)
 
 fromPy$pam=dplyr::recode_factor(fromPy$pam, 
-                  `1` = '5',`2`='4',`3`='3',`4`='2',`5`='1')
+                  `1` = '4',`2`='3',`3`='2',`4`='1')
 fromPy$agn=dplyr::recode_factor(fromPy$agn, 
-                  `1` = '5',`2`='4',`3`='3',`4`='2',`5`='1')
+                  `1` = '4',`2`='3',`3`='2',`4`='1')
 fromPy$dia=dplyr::recode_factor(fromPy$dia, 
-                  `1` = '5',`2`='4',`3`='3',`4`='2',`5`='1')
+                  `1` = '4',`2`='3',`3`='2',`4`='1')
 ```
 
 ### 3. Evaluate Results.
@@ -206,8 +251,10 @@ a. Save individual silhouettes:
 Previos results have saved important information:
 
 ```{r infoSIL, eval=TRUE}
-head(data.frame(res.pam$silinfo$widths),20)
+head(data.frame(res.pam$silinfo$widths),10)
 ```
+
+Let me keep the negative sihouette values:
 
 ```{r negativeSILs, eval=TRUE}
 pamEval=data.frame(res.pam$silinfo$widths)
@@ -219,23 +266,38 @@ agnPoor=rownames(agnEval[agnEval$sil_width<0,])
 diaPoor=rownames(diaEval[diaEval$sil_width<0,])
 ```
 
+Now, I can see what countries are not well clustered. Juntemos todos en un Dataframe:
 
+```{r, eval=TRUE}
+library("qpcR") 
+bap_Clus=as.data.frame(qpcR:::cbind.na(sort(pamPoor), sort(agnPoor),sort(diaPoor)))
+bap_Clus
+```
 
 
 # How to compare clustering?
 
-* Prepare a bidimensional map using distances:
+* Prepare a bidimensional map. The function *cmdscale* can produce a two dimension map of points using the *distance matrix*:
 
 ```{r cmd_Map, eval=TRUE}
 projectedData = cmdscale(dataToCluster_DM, k=2)
+```
+
+The object projectedData is saving coordinates for each element in the data:
+
+```{r, eval=TRUE}
 #
 # save coordinates to original data frame:
 fromPy$dim1 = projectedData[,1]
 fromPy$dim2 = projectedData[,2]
+
+# see some:
+
+fromPy[,c('dim1','dim2')][1:10,]
 ```
 
 
-* See the "map":
+* Use those points and see the "map":
 
 ```{r plotCmdmap, eval=TRUE}
 base= ggplot(data=fromPy,
@@ -245,15 +307,14 @@ base + geom_text(size=2)
 ```
 
 
-
-* Plot results from PAM:
+* Color the map using the labels from PAM:
 ```{r plotpam, eval=TRUE}
 pamPlot=base + labs(title = "PAM") + geom_point(size=2,
                                               aes(color=pam),
-                                              show.legend = T)  
+                                              show.legend = T) 
 ```
 
-* Plot results from Hierarchical AGNES:
+* Color the map using the labels from Hierarchical AGNES:
 ```{r plotagn, eval=TRUE}
 agnPlot=base + labs(title = "AGNES") + geom_point(size=2,
                                               aes(color=agn),
@@ -261,7 +322,7 @@ agnPlot=base + labs(title = "AGNES") + geom_point(size=2,
 ```
 
 
-* Plot results from Hierarchical DIANA:
+* Color the map using the labels from  Hierarchical DIANA:
 ```{r plotdia, eval=TRUE}
 diaPlot=base + labs(title = "DIANA") + geom_point(size=2,
                                               aes(color=dia),
@@ -277,21 +338,29 @@ library(ggpubr)
 ggarrange(pamPlot, agnPlot, diaPlot,ncol = 3,common.legend = T)
 ```
 
-Annotating outliers:
+* Annotating outliers:
 
-```{r plotdb_annot2, eval=TRUE}
-library(ggrepel)
+Prepare labels:
+```{r, eval=TRUE}
+# If name of country in black list, use it, else get rid of it
 LABELpam=ifelse(fromPy$Country%in%pamPoor,fromPy$Country,"")
 LABELdia=ifelse(fromPy$Country%in%diaPoor,fromPy$Country,"")
 LABELagn=ifelse(fromPy$Country%in%agnPoor,fromPy$Country,"")
+```
+
+
+```{r plotdb_annot2, eval=TRUE}
+
+
+library(ggrepel)
 pamPlot + geom_text_repel(aes(label=LABELpam))
 ```
 
 
-```{r}
+```{r, eval=TRUE}
 diaPlot + geom_text_repel(aes(label=LABELdia))
 ```
-```{r}
+```{r, eval=TRUE}
 agnPlot + geom_text_repel(aes(label=LABELagn))
 ```
 
