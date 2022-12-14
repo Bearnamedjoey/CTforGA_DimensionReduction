@@ -469,6 +469,7 @@ sort(resfa$complexity)
 ```
 
 ```{r}
+library(BBmisc)
 efa_scores=normalize(resfa$scores, 
                        method = "range", 
                        margin=2, # by column
@@ -477,10 +478,19 @@ efa_scores=normalize(resfa$scores,
 fromPy$Fragile_efa=efa_scores[,1]
 fromPy$Demo_efa=efa_scores[,2]
 
-ggplot(data=fromPy,aes(x=Overallscore,y=Demo_efa)) + geom_point() + theme_minimal() + labs(x="DemoIndex (original)", y="DemoIndex (cambiado)")
+library("ggpubr")
+ggscatter(data=fromPy, x = "Overallscore", y = "Demo_efa", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "DemoIndex (original)", ylab = "DemoIndex (efa)")
 ```
 
 ```{r}
-ggplot(data=fromPy,aes(x=Total,y=Fragile_efa)) + geom_point() + theme_minimal() + labs(x="FragileIndex (original)", y="FragileIndex (efa)")
+
+
+ggscatter(data=fromPy, x = "Total", y = "Fragile_efa", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "FragileIndex (original)", ylab = "FragileIndex (efa)")
 ```
 
