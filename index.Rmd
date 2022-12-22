@@ -1,0 +1,614 @@
+<br>
+
+<center><img src="http://i.imgur.com/sSaOozN.png" width="500"/></center>
+
+## Course: COMPUTATIONAL THINKING FOR GOVERNANCE ANALYTICS
+
+### Prof. José Manuel Magallanes, PhD
+
+-   Visiting Professor of Computational Policy at Evans School of Public Policy and Governance, and eScience Institute Senior Data Science Fellow, University of Washington.
+-   Professor of Government and Political Methodology, Pontificia Universidad Católica del Perú.
+
+------------------------------------------------------------------------
+
+<a id='part1'></a>
+
+# Dimensionality Reduction in R
+
+As the name implies, we want to *reduce* a set of several variables into few variables. In this session, we will practice two basic techniques:
+
+-   Cluster analysis.
+
+-   Factor analysis.
+
+## <font color="red">Cluster Analysis</font>
+
+Simply speaking, this technique will organize the cases (rows) into a small set of groups, based on the information (the columns) available for each case. This technique will create a new variable, which will be of categorical type, generally ordinal.
+
+Let me bring back the data we prepared in Python:
+
+```{r fromPyData, eval=TRUE}
+# clean memory
+rm(list = ls()) 
+
+# link to data file
+link='https://github.com/EvansDataScience/CTforGA_integrating/raw/main/demo_fragile.RDS'
+
+# a RDS file from the web needs:
+myFile=url(link)
+
+# reading in the data:
+fromPy=readRDS(file = myFile)
+
+# reset indexes to R paradigm:
+row.names(fromPy)=NULL
+
+# check data types
+str(fromPy)
+```
+
+### I. Prepare data:
+
+We have several countries, and several columns. In clustering, we try to create groups so that we have the highest homogeneity within groups, and the highest heterogeneity between groups. The variables will serve compute some **distance** among the cases so that the clustering algorithms will try to detect the homogeneity and heterogeneity mentioned:
+
+1.  **Subset** the data: For this case just keep the columns with numeric values without the categories or the summary scores:
+
+```{r dataSubset, eval=TRUE}
+# select variables
+dataToCluster=fromPy[,-c(1:3,9)]
+#save the country names as the row index
+row.names(dataToCluster)=fromPy$Country
+```
+
+2.  Decide if **transformation** is needed: Take a look at the data ranges:
+
+```{r exploreTypes, eval=TRUE}
+summary(dataToCluster)
+```
+
+```{r boxplotStandardize1, eval=TRUE}
+boxplot(dataToCluster,horizontal = T, las=2,cex.axis=0.4)
+```
+
+The data values have a similar range, then you do not need to transform the data. Possible alternatives could have been:
+
+```{r transformOptions, eval=FALSE}
+library(BBmisc)
+#### standardizing
+normalize(dataToCluster,method='standardize')
+
+### normalizing
+normalize(dataToCluster,method='range',range=c(0,10))
+```
+
+### II. Compute the DISTANCE MATRIX:
+
+1.  Set random **seed**: Multivariate techniques may use some random processes; so managing that process allows replication of results.
+
+```{r SeedForCluster, eval=TRUE}
+set.seed(999) 
+```
+
+2.  Decide **distance method** and compute **distance matrix**: We use *gower* as it allows for multiple data types. The default, the *euclidian*, works well when the data are numeric.
+
+```{r DistanceMatrix, eval=TRUE}
+library(cluster)
+distanceMatrix=daisy(x=dataToCluster, metric = "gower")
+```
+
+3.  Represent distances: Once you have the *distanceMatrix* you can use it to locate each case on a simpler space, in this case, let's use a bidimensional representation. The function *cmdscale* can produce a two-dimension map of points using *distanceMatrix*:
+
+```{r cmd, eval=TRUE}
+projectedData = cmdscale(distanceMatrix, k=2)
+```
+
+The object *projectedData* is saving coordinates for each element in the data:
+
+```{r coordinates, eval=TRUE}
+
+# save coordinates to original data frame:
+fromPy$dim1 = projectedData[,1]
+fromPy$dim2 = projectedData[,2]
+
+# see some:
+
+fromPy[,c('dim1','dim2')][1:10,]
+```
+
+4. Use those points and see a "map" of the cases:
+
+```{r plotCmdmap, eval=TRUE}
+library(ggplot2)
+base= ggplot(data=fromPy,
+             aes(x=dim1, y=dim2,
+                 label=Country)) 
+base + geom_text(size=2)
+```
+
+Can you see some groups emerging?
+
+An alternative is the dendogram:
+
+```{r dendo, fig.width=12}
+# prepare hierarchical cluster
+hc = hclust(distanceMatrix)
+# very simple dendrogram
+plot(hc,hang = -1,cex=0.5)
+```
+
+## Compute Clusters
+
+There are several techniques for clustering, each with pros and cons. We will review the **hierarchical** clustering here. As the name implies, it will create clusters by creating all the possible clusters, so it is up to us to identify how many clusters emerge. The _dendogram_ helps to identify how many clusters can be found. 
+The hierarchical approach has two different strategies. The agglomerative approach starts by considering each case (row) a cluster, and then, using the distances **links** the individual cases. It is not expected that all cases are linked during the first step. The second step will create more clusters, and so on. The linking process can also vary (we will use the **ward** linkage). On the other hand, the divisive approach starts by considering all the cases as one cluster, and then divides them.
+
+### 1. Compute clustering suggestions
+
+Using function *fviz_nbclust* from the library *factoextra*, we can see how many clustered are suggested.
+
+a.  For hierarchical (agglomerative):
+
+```{r, eval=TRUE}
+library(factoextra)
+fviz_nbclust(dataToCluster, 
+             hcut,
+             diss=distanceMatrix,
+             method = "gap_stat",
+             k.max = 10,
+             verbose = F,
+             hc_func = "agnes")
+```
+
+b.  For hierarchical (divisive):
+
+```{r, eval=TRUE}
+fviz_nbclust(dataToCluster, 
+             hcut,
+             diss=distanceMatrix,
+             method = "gap_stat",
+             k.max = 10,
+             verbose = F,
+             hc_func = "diana")
+```
+
+We could accept the number of cluster suggested or not. Let's use the suggestion:
+
+### 2. Compute clusters: 
+
+Here you can compute the clusters. I am using both, the aggregative and the divisive . Notice that you have to indicate a priori the amount of clusters required.
+
+```{r clusterComputeALL, eval=TRUE}
+
+NumberOfClusterDesired=4
+
+
+#library(factoextra)
+res.agnes= hcut(distanceMatrix, 
+                k = NumberOfClusterDesired,
+                isdiss=TRUE,
+                hc_func='agnes',
+                hc_method = "ward.D2")
+
+# Hierarchical technique- divisive approach
+res.diana= hcut(distanceMatrix, 
+                k = NumberOfClusterDesired,
+                isdiss=TRUE,
+                hc_func='diana',
+                hc_method = "ward.D2")
+```
+
+### 3. Results from Clustering
+
+**3.1** Save results to original data frame:
+
+```{r clusterSave_toDF, eval=TRUE}
+
+fromPy$agn=as.factor(res.agnes$cluster)
+fromPy$dia=as.factor(res.diana$cluster)
+```
+
+**3.2** Verify ordinality in clusters: Each cluster has a label. Should the result represent some ordering, the labels does not reflect that necessarily. Below, I show that I used the columns _Overallscore_ to get an idea of the real ordering that the labels represent.
+
+```{r clusAgnCheck, eval=TRUE}
+aggregate(data=fromPy,
+          Overallscore~agn,
+          FUN=mean)
+```
+
+```{r clusDiaCheck, eval=TRUE}
+aggregate(data=fromPy,
+          Overallscore~dia,
+          FUN=mean)
+```
+
+You could recode these values so that the labels represent an ascending order.
+
+```{r recoding, eval=TRUE, message=FALSE}
+library(dplyr)
+
+fromPy$agn=dplyr::recode_factor(fromPy$agn, 
+                  `1` = '4',`2`='3',`3`='2',`4`='1')
+fromPy$dia=dplyr::recode_factor(fromPy$dia, 
+                  `1` = '4',`2`='3',`3`='2',`4`='1')
+```
+
+### 4. Evaluate Results
+
+The hierarchical clustering process returns the **the silhouette** information for each observation, a measure that of how well a case has been classified. Silhouettes vary from -1 to +1, where the higher the positive value the better classified a case is. Low positive values informs of poor clustering. Negative values informs of wrongly clustered cases.
+
+**4.1** Plot silhouettes
+
+```{r clust_silhou_AGNES, eval=TRUE}
+
+fviz_silhouette(res.agnes)
+```
+
+```{r clust_silhou_DIANA, eval=TRUE}
+library(factoextra)
+fviz_silhouette(res.diana)
+```
+
+**4.2** Detecting cases wrongly clustered
+
+a.  Save individual silhouettes:
+
+Previos results have saved important information. Let me keep the negative sihouette values:
+
+```{r negativeSILs, eval=TRUE}
+agnEval=data.frame(res.agnes$silinfo$widths)
+diaEval=data.frame(res.diana$silinfo$widths)
+
+agnPoor=rownames(agnEval[agnEval$sil_width<0,])
+diaPoor=rownames(diaEval[diaEval$sil_width<0,])
+```
+
+Now, I can see what countries are not well clustered:
+
+```{r, eval=TRUE, message=FALSE}
+library("qpcR") 
+bad_Clus=as.data.frame(qpcR:::cbind.na(sort(agnPoor),
+                                       sort(diaPoor)))
+names(bad_Clus)=c("agn","dia")
+bad_Clus
+```
+
+## How to compare clustering?
+
+a. Color the maps:
+
+    - For Hierarchical AGNES:
+
+```{r plotagn, eval=TRUE}
+base= ggplot(data=fromPy,
+             aes(x=dim1, y=dim2,
+                 label=Country)) 
+agnPlot=base + labs(title = "AGNES") + geom_point(size=2,
+                                              aes(color=agn),
+                                              show.legend = T) 
+```
+
+    -   For Hierarchical DIANA:
+
+```{r plotdia, eval=TRUE}
+diaPlot=base + labs(title = "DIANA") + geom_point(size=2,
+                                              aes(color=dia),
+                                              show.legend = T) 
+```
+
+b. Compare visually:
+
+```{r plotcompare, eval=TRUE, fig.width=12}
+library(ggpubr)
+
+ggarrange(agnPlot, diaPlot,ncol = 2,common.legend = T)
+```
+
+c. Annotating outliers:
+
+    - Prepare labels:
+
+```{r labelsOutliers, eval=TRUE}
+# If name of country in black list, use it, else get rid of it
+LABELdia=ifelse(fromPy$Country%in%diaPoor,fromPy$Country,"")
+LABELagn=ifelse(fromPy$Country%in%agnPoor,fromPy$Country,"")
+```
+
+    - Prepare plot with the outlying labels:
+    
+```{r diaAnnotate, eval=TRUE}
+library(ggrepel)
+diaPlot=diaPlot + 
+        geom_text_repel(aes(label=LABELdia),
+                        max.overlaps=50,
+                        min.segment.length =unit(0,'lines'))
+```
+
+```{r agnAnnotate, eval=TRUE}
+agnPlot= agnPlot + 
+         geom_text_repel(aes(label=LABELagn),
+                         max.overlaps = 50,
+                         min.segment.length = unit(0, 'lines'))
+```
+    
+    - Plot and compare:
+
+```{r plotcompare2, eval=TRUE, fig.width=12}
+ggarrange(agnPlot, 
+          diaPlot,
+          ncol = 2,
+          common.legend = T)
+```
+
+
+d. Produce Dendograms for the results:
+
+```{r clusagnREPORTdendo, eval=TRUE, warning=FALSE, fig.width=12, fig.height=10}
+fviz_dend(res.agnes,
+          k=NumberOfClusterDesired, 
+          cex = 0.45, 
+          horiz = T,
+          main = "AGNES approach")
+```
+
+```{r clusdiaREPORTdendo, eval=TRUE, warning=FALSE, fig.width=12, fig.height=10}
+fviz_dend(res.diana,
+          k=NumberOfClusterDesired, 
+          cex = 0.45, 
+          horiz = T,
+          main = "DIANA approach")
+```
+
+Let's compare these clusters with the levels proposed by The Economist:
+
+```{r tablecompareAGN}
+table(fromPy$Regimetype,fromPy$agn)
+```
+
+```{r tablecompareDIA}
+table(fromPy$Regimetype,fromPy$dia)
+```
+This way, you can use the clustering results to validate other classifications done theoretically or by simpler techniques (i.e. averaging).
+
+# <font color="red">FACTOR ANALYSIS</font>
+
+Simply speaking, this technique tries to express in one (or few) dimension(s) the behavior of several others. FA assumes that the several input variables have 'something' in common, there is something **latent** that the set of input variables represent.
+
+Let follow this steps:
+
+## 1. Subset our original data frame: 
+
+Our *dataForFA* has the same data as the one we used for clustering.
+
+```{r, eval=TRUE}
+dataForFA=dataToCluster
+```
+
+We know that we have two sets of variables, one related to democracy and other to fragility, all of them computed at the country level. 
+
+## 2. Compute the correlations:
+
+In Factor analysis we need a measure of similarity among variables (not cases). Let me compute the heterogenous correlation matrix (Pearson correlations between numeric variables, polyserial correlations between numeric and ordinal variables, and polychoric correlations between ordinal variables).
+
+```{r hetcor}
+library(polycor)
+corMatrix=polycor::hetcor(dataForFA)$correlations
+```
+
+We can visualize this matrix:
+
+```{r}
+library(ggcorrplot)
+
+ggcorrplot(corMatrix,
+           type = "lower") + 
+          theme(axis.text.x  = element_text(size = 5),
+                axis.text.y  = element_text(size = 5))
+```
+You should notice that the set of variables that belong to a concept are correlated among one another. Variables from different concepts should have a low correlation.
+
+## 3. Check Conditions
+
+3.1 The amount of data should be enough for the correlation process:
+
+```{r kmo, eval=TRUE, message=FALSE}
+library(psych)
+psych::KMO(corMatrix) 
+```
+
+3.2 The correlation matrix should not be an identity matrix:
+
+```{r}
+# is identity matrix?
+cortest.bartlett(corMatrix,n=nrow(dataForFA))$p.value>0.05
+```
+3.2. The correlation matrix should not be singular
+
+```{r}
+library(matrixcalc)
+
+is.singular.matrix(corMatrix)
+```
+If some conditions fail you may not expect a reliable result, however, you may continue to see the sources of the flaws.
+
+## 4. Get suggestions for amount of clusters
+
+```{r}
+fa.parallel(dataForFA, fa = 'fa',correct = T,plot = F)
+```
+## 5. Compute the Factors
+
+```{r}
+library(GPArotation)
+resfa <- fa(dataForFA,
+            nfactors = 2,
+            cor = 'mixed',
+            rotate = "varimax",
+            fm="minres")
+```
+
+## 6. Explore results
+
+```{r}
+### see results
+print(resfa$loadings)
+```
+
+You can see better using a _cutoff_:
+
+```{r}
+print(resfa$loadings,cutoff = 0.5)
+```
+
+The previous results serve to indicate if variables group in a meaningful way. In our example, you want to know if the indicators in each set are grouped together. These previous results can alse be visualized:
+
+```{r}
+fa.diagram(resfa,main = "EFA results")
+```
+
+## 7. Analyse the results
+
+7.1 How are indicators contributing to the process? 
+
+```{r communality}
+# The higher the better
+sort(resfa$communality)
+```
+
+
+7.2 What indicators are loading in more than one factor?
+
+```{r complexity}
+# closer to 2, 3, etc?
+# closer to zero?
+sort(resfa$complexity)
+```
+
+## 8. Make a decision
+
+* Can we use these results? Maybe not.
+* Can we improve these results? You can try to eliminate variables, interpreting the results.
+
+## 9. Improve the Factor Analysis
+
+9.1 Let's remove some variables. These belong to 'fragility' but may be close to 'democracy':
+
+```{r data2}
+ps=c("P1StateLegitimacy","P2PublicServices","P3HumanRights")
+notPs=setdiff(names(dataForFA),ps)
+dataForFA2=dataForFA[,notPs]
+```
+
+9.2 Recompute correlations
+
+```{r hetcor2}
+# esta es:
+library(polycor)
+corMatrix2=polycor::hetcor(dataForFA2)$correlations
+```
+
+9.3 Recheck conditions:
+
+a. KMO
+
+```{r kmo2}
+library(psych)
+psych::KMO(corMatrix2) 
+```
+
+b. Bartlett
+
+```{r bartlett2}
+cortest.bartlett(corMatrix2,n=nrow(dataForFA2))$p.value>0.05
+```
+
+c. Singularity
+
+```{r singular2}
+library(matrixcalc)
+
+is.singular.matrix(corMatrix2)
+```
+9.4. Get suggestions
+
+```{r}
+fa.parallel(dataForFA2, fa = 'fa',correct = T,plot = F)
+```
+9.5 Compute factors
+```{r}
+library(GPArotation)
+resfa <- fa(dataForFA2,
+            nfactors = 2,
+            cor = 'mixed',
+            rotate = "varimax",
+            fm="minres")
+```
+
+9.6 Explore results
+
+Here, numerically
+
+```{r}
+print(resfa$loadings,cutoff = 0.5)
+```
+
+Visually:
+
+```{r}
+fa.diagram(resfa,main = "EFA results (2)")
+```
+
+9.7 Analyse new results
+
+* Communalities:
+
+```{r}
+sort(resfa$communality)
+```
+
+* Complexity:
+
+```{r}
+sort(resfa$complexity)
+```
+
+It is not that we have the prefect solution, but you need to eventually stop.
+
+## 10. Compute the scores
+
+Each factor is represented by an score:
+
+```{r scores}
+summary(resfa$scores)
+```
+As you see, the scores are not in the range from zero to ten; let's make the change:
+
+```{r normalizeScores, message=FALSE}
+library(BBmisc)
+efa_scores=normalize(resfa$scores, 
+                       method = "range", 
+                       margin=2, # by column
+                       range = c(0, 10))
+# save the scores in the data
+fromPy$Fragile_efa=efa_scores[,1]
+fromPy$Demo_efa=efa_scores[,2]
+```
+
+You do not normally have a means to validate the scores, but our example data has pre computed scores. Let's use those to see if our scores make sense.
+
+* Democracy:
+
+```{r plotScores}
+library("ggpubr")
+ggscatter(data=fromPy, x = "Overallscore", y = "Demo_efa", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "DemoIndex (original)", ylab = "DemoIndex (efa)")
+```
+
+* Fragility
+
+```{r}
+ggscatter(data=fromPy, x = "Total", y = "Fragile_efa", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "FragileIndex (original)", ylab = "FragileIndex (efa)")
+```
