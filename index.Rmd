@@ -500,7 +500,7 @@ fa.parallel(dataForFA2, fa = 'fa',correct = T,plot = F)
 ```{r}
 library(GPArotation)
 resfa <- fa(dataForFA2,
-            nfactors = 2,
+            nfactors = 3,
             cor = 'mixed',
             rotate = "varimax",
             fm="minres")
@@ -508,16 +508,23 @@ resfa <- fa(dataForFA2,
 
 8.6 Explore results
 
-Here, numerically
-
-```{r}
-print(resfa$loadings,cutoff = 0.5)
-```
 
 Visually:
 
 ```{r}
 fa.diagram(resfa,main = "EFA results (2)")
+```
+If you find no theory to explain this result, you can try  smaller amount of factors (try 2):
+
+```{r}
+library(GPArotation)
+resfa <- fa(dataForFA2,
+            nfactors = 2,
+            cor = 'mixed',
+            rotate = "varimax",
+            fm="minres")
+
+fa.diagram(resfa,main = "EFA results (3)")
 ```
 
 8.7 Analyse new results
@@ -576,3 +583,10 @@ ggscatter(data=fromPy, x = "Total", y = "Fragile_efa",
           cor.coef = TRUE, cor.method = "pearson",
           xlab = "FragileIndex (original)", ylab = "FragileIndex (efa)")
 ```
+
+Let's save the data frame **fromPy** for further use:
+
+```{r}
+saveRDS(fromPy,file = 'fromPyPlus.RDS')
+```
+
