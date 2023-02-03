@@ -32,7 +32,7 @@ Let me bring back the data we prepared in Python:
 rm(list = ls()) 
 
 # link to data file
-link='https://github.com/EvansDataScience/CTforGA_integrating/raw/main/demo_fragile.RDS'
+link='https://github.com/EvansDataScience/CTforGA_integrating/raw/main/demfragiso_expo.RDS'
 
 # a RDS file from the web needs:
 myFile=url(link)
@@ -49,37 +49,17 @@ str(fromPy)
 
 ### I. Prepare data:
 
-We have several countries, and several columns. In clustering, we try to create groups so that we have the highest homogeneity within groups, and the highest heterogeneity between groups. The variables will serve compute some **distance** among the cases so that the clustering algorithms will try to detect the homogeneity and heterogeneity mentioned:
+We have several countries, and several columns. In clustering, we try to create groups so that we have the highest homogeneity within groups, and the highest heterogeneity between groups. The variables will serve compute some **distance** among the cases so that the clustering algorithms will try to detect the homogeneity and heterogeneity mentioned.
 
-1.  **Subset** the data: For this case just keep the columns with numeric values without the categories or the summary scores:
+Here you should **subset** the data: For this case just keep the columns with numeric values without the categories or the summary scores, and renaming the index with the country names:
 
 ```{r dataSubset, eval=TRUE}
 # select variables
-dataToCluster=fromPy[,-c(1:3,9)]
+dataToCluster=fromPy[,-c(1,2:7,13)]
 #save the country names as the row index
-row.names(dataToCluster)=fromPy$Country
+row.names(dataToCluster)=fromPy$Countryname
 ```
 
-2.  Decide if **transformation** is needed: Take a look at the data ranges:
-
-```{r exploreTypes, eval=TRUE}
-summary(dataToCluster)
-```
-
-```{r boxplotStandardize1, eval=TRUE}
-boxplot(dataToCluster,horizontal = T, las=2,cex.axis=0.4)
-```
-
-The data values have a similar range, then you do not need to transform the data. Possible alternatives could have been:
-
-```{r transformOptions, eval=FALSE}
-library(BBmisc)
-#### standardizing
-normalize(dataToCluster,method='standardize')
-
-### normalizing
-normalize(dataToCluster,method='range',range=c(0,10))
-```
 
 ### II. Compute the DISTANCE MATRIX:
 
@@ -121,7 +101,7 @@ fromPy[,c('dim1','dim2')][1:10,]
 library(ggplot2)
 base= ggplot(data=fromPy,
              aes(x=dim1, y=dim2,
-                 label=Country)) 
+                 label=Countryname)) 
 base + geom_text(size=2)
 ```
 
@@ -226,14 +206,14 @@ You could recode these values so that the labels represent an ascending order.
 library(dplyr)
 
 fromPy$agn=dplyr::recode_factor(fromPy$agn, 
-                  `1` = '4',`2`='3',`3`='2',`4`='1')
+                  `1` = '2',`2`='3',`3`='4',`4`='1')
 fromPy$dia=dplyr::recode_factor(fromPy$dia, 
-                  `1` = '4',`2`='3',`3`='2',`4`='1')
+                  `1` = '1',`2`='3',`3`='2',`4`='4')
 ```
 
 ### 4. Evaluate Results
 
-The hierarchical clustering process returns the **the silhouette** information for each observation, a measure that of how well a case has been classified. Silhouettes vary from -1 to +1, where the higher the positive value the better classified a case is. Low positive values informs of poor clustering. Negative values informs of wrongly clustered cases.
+The hierarchical clustering process returns the **silhouette** information for each observation, a measure of how well a case has been classified. Silhouettes vary from -1 to +1, where the higher the positive value the better classified a case is. Low positive values informs of poor clustering. Negative values informs of wrongly clustered cases.
 
 **4.1** Plot silhouettes
 
@@ -280,7 +260,7 @@ a. Color the maps:
 ```{r plotagn, eval=TRUE}
 base= ggplot(data=fromPy,
              aes(x=dim1, y=dim2,
-                 label=Country)) 
+                 label=Countryname)) 
 agnPlot=base + labs(title = "AGNES") + geom_point(size=2,
                                               aes(color=agn),
                                               show.legend = T) 
@@ -296,7 +276,7 @@ diaPlot=base + labs(title = "DIANA") + geom_point(size=2,
 
 b. Compare visually:
 
-```{r plotcompare, eval=TRUE, fig.width=12}
+```{r plotcompare, eval=TRUE, fig.width=8}
 library(ggpubr)
 
 ggarrange(agnPlot, diaPlot,ncol = 2,common.legend = T)
@@ -308,8 +288,8 @@ c. Annotating outliers:
 
 ```{r labelsOutliers, eval=TRUE}
 # If name of country in black list, use it, else get rid of it
-LABELdia=ifelse(fromPy$Country%in%diaPoor,fromPy$Country,"")
-LABELagn=ifelse(fromPy$Country%in%agnPoor,fromPy$Country,"")
+LABELdia=ifelse(fromPy$Countryname%in%diaPoor,fromPy$Countryname,"")
+LABELagn=ifelse(fromPy$Countryname%in%agnPoor,fromPy$Countryname,"")
 ```
 
     - Prepare plot with the outlying labels:
@@ -465,32 +445,15 @@ The previous results serve to indicate if variables group in a meaningful way. I
 fa.diagram(resfa,main = "EFA results")
 ```
 
-## 7. Analyse the results
 
-7.1 How are indicators contributing to the process? 
-
-```{r communality}
-# The higher the better
-sort(resfa$communality)
-```
-
-
-7.2 What indicators are loading in more than one factor?
-
-```{r complexity}
-# closer to 2, 3, etc?
-# closer to zero?
-sort(resfa$complexity)
-```
-
-## 8. Make a decision
+## 7. Make a decision
 
 * Can we use these results? Maybe not.
 * Can we improve these results? You can try to eliminate variables, interpreting the results.
 
-## 9. Improve the Factor Analysis
+## 8. Improve the Factor Analysis
 
-9.1 Let's remove some variables. These belong to 'fragility' but may be close to 'democracy':
+8.1 Let's remove some variables. These belong to 'fragility' but may be close to 'democracy':
 
 ```{r data2}
 ps=c("P1StateLegitimacy","P2PublicServices","P3HumanRights")
@@ -498,7 +461,7 @@ notPs=setdiff(names(dataForFA),ps)
 dataForFA2=dataForFA[,notPs]
 ```
 
-9.2 Recompute correlations
+8.2 Recompute correlations
 
 ```{r hetcor2}
 # esta es:
@@ -506,7 +469,7 @@ library(polycor)
 corMatrix2=polycor::hetcor(dataForFA2)$correlations
 ```
 
-9.3 Recheck conditions:
+8.3 Recheck conditions:
 
 a. KMO
 
@@ -528,12 +491,12 @@ library(matrixcalc)
 
 is.singular.matrix(corMatrix2)
 ```
-9.4. Get suggestions
+8.4. Get suggestions
 
 ```{r}
 fa.parallel(dataForFA2, fa = 'fa',correct = T,plot = F)
 ```
-9.5 Compute factors
+8.5 Compute factors
 ```{r}
 library(GPArotation)
 resfa <- fa(dataForFA2,
@@ -543,7 +506,7 @@ resfa <- fa(dataForFA2,
             fm="minres")
 ```
 
-9.6 Explore results
+8.6 Explore results
 
 Here, numerically
 
@@ -557,15 +520,15 @@ Visually:
 fa.diagram(resfa,main = "EFA results (2)")
 ```
 
-9.7 Analyse new results
+8.7 Analyse new results
 
-* Communalities:
+* Communalities: How each variable is contributing to the factorizing process.
 
 ```{r}
 sort(resfa$communality)
 ```
 
-* Complexity:
+* Complexity: To how many factors a variable seems closer:
 
 ```{r}
 sort(resfa$complexity)
@@ -573,7 +536,7 @@ sort(resfa$complexity)
 
 It is not that we have the prefect solution, but you need to eventually stop.
 
-## 10. Compute the scores
+## 9. Compute the scores
 
 Each factor is represented by an score:
 
