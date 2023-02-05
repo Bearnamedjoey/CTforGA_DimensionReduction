@@ -206,9 +206,9 @@ You could recode these values so that the labels represent an ascending order.
 library(dplyr)
 
 fromPy$agn=dplyr::recode_factor(fromPy$agn, 
-                  `1` = '2',`2`='3',`3`='4',`4`='1')
+                  `4`='1',`1` = '2',`2`='3',`3`='4',.ordered = T)
 fromPy$dia=dplyr::recode_factor(fromPy$dia, 
-                  `1` = '1',`2`='3',`3`='2',`4`='4')
+                  `1` = '1',`3`='2',`2`='3',`4`='4',.ordered = T)
 ```
 
 ### 4. Evaluate Results
