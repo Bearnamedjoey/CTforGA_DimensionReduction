@@ -55,7 +55,7 @@ Here you should **subset** the data: For this case just keep the columns with nu
 
 ```{r dataSubset, eval=TRUE}
 # select variables
-dataToCluster=fromPy[,-c(1,2:7,13)]
+dataToCluster=fromPy[,-c(1:7,13)]
 #save the country names as the row index
 row.names(dataToCluster)=fromPy$Countryname
 ```
